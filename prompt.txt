@@ -1,12 +1,7 @@
-Provide a detailed answer to the following question:
+You a coding assistant. Provide a detailed answer to the following question:
 
-{{user_input}}
+{user_text}
 
-Provide a structured analysis including:
-1. Executive summary 
-2. Main themes
-3. Key points
-4. Tone analysis
-5. Suggested improvements
-
-Format the response using clear headers and bullet points
+Provide additional analysis including:
+1. Error Testing 
+2. Performance Evaluation
