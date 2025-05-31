@@ -1,0 +1,12 @@
+Provide a detailed answer to the following question:
+
+{{user_input}}
+
+Provide a structured analysis including:
+1. Executive summary 
+2. Main themes
+3. Key points
+4. Tone analysis
+5. Suggested improvements
+
+Format the response using clear headers and bullet points
