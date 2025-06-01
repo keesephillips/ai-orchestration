@@ -41,9 +41,13 @@ def render_conversation(turns):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    with open('prompt.txt','r') as f:
-        prompt = f.read()
-        
+    try:
+        with open('prompt.txt','r') as f:
+            prompt_template = f.read()
+    except FileNotFoundError:
+        app.logger.error("prompt.txt not found!")
+        prompt_template = "User query: {user_text}" 
+
     if "conversation" not in session:
         session["conversation"] = []
 
@@ -51,19 +55,42 @@ def index():
         user_text = request.form.get("message", "").strip()
         if user_text:
             session["conversation"].append({"role": "user", "text": user_text})
+            session.modified = True 
 
-            try:
-                response: ChatResponse = chat(model='qwen3', messages=[
-                {
-                    'role': 'user',
-                    'content': prompt.format(user_text=user_text),
-                },
-                ])
-                assistant_text = response.message.content
-            except Exception as exc:
-                assistant_text = f"Error: {exc}"
+            assistant_text = None
+            last_exception = None
+
+            for attempt in range(MAX_RETRIES):
+                try:
+                    app.logger.info(f"Attempt {attempt + 1}/{MAX_RETRIES} to call Ollama model.")
+                    formatted_prompt = prompt_template.format(user_text=user_text)
+                    
+                    response: ChatResponse = chat(model='qwen3', messages=[
+                        {
+                            'role': 'user',
+                            'content': formatted_prompt,
+                        },
+                    ])
+                    assistant_text = response.message.content
+                    app.logger.info("Ollama call successful.")
+                    break  
+                
+                except Exception as exc:
+                    last_exception = exc
+                    app.logger.warning(f"Attempt {attempt + 1}/{MAX_RETRIES} failed. Error: {exc}")
+                    if attempt < MAX_RETRIES - 1:
+                        delay = min(INITIAL_RETRY_DELAY_SECONDS * (2 ** attempt), 30) 
+                        app.logger.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        app.logger.error(f"All {MAX_RETRIES} attempts to connect to Ollama failed.")
+                        assistant_text = (
+                            f"Error: Could not connect to the Ollama model after {MAX_RETRIES} attempts. "
+                            f"Please try again later. (Details: {type(last_exception).__name__})"
+                        )
 
             session["conversation"].append({"role": "assistant", "text": assistant_text})
+            session.modified = True 
 
         page = HTML_SKELETON.format(conversation=render_conversation(session["conversation"]))
         return make_response(page, 200, {"Content-Type": "text/html"})
